@@ -6,25 +6,159 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>800</width>
-    <height>600</height>
+    <width>561</width>
+    <height>401</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
-  <widget class="QWidget" name="centralwidget"/>
+  <widget class="QWidget" name="centralwidget">
+   <widget class="QTabWidget" name="tabWidget">
+    <property name="geometry">
+     <rect>
+      <x>6</x>
+      <y>6</y>
+      <width>341</width>
+      <height>311</height>
+     </rect>
+    </property>
+    <widget class="QWidget" name="tab">
+     <attribute name="title">
+      <string>Tab 1</string>
+     </attribute>
+    </widget>
+    <widget class="QWidget" name="tab_2">
+     <attribute name="title">
+      <string>Tab 2</string>
+     </attribute>
+    </widget>
+   </widget>
+  </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>800</width>
+     <width>561</width>
      <height>18</height>
     </rect>
    </property>
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>文件</string>
+    </property>
+    <addaction name="actionOpenConfig"/>
+    <addaction name="actionExportData"/>
+    <addaction name="actionExit"/>
+   </widget>
+   <widget class="QMenu" name="menuView">
+    <property name="title">
+     <string>视图</string>
+    </property>
+    <addaction name="actionToggleLeftDock"/>
+    <addaction name="actionToggleRightDock"/>
+   </widget>
+   <widget class="QMenu" name="menuHelp">
+    <property name="title">
+     <string>帮助</string>
+    </property>
+    <addaction name="actionAbout"/>
+   </widget>
+   <addaction name="menuFile"/>
+   <addaction name="menuView"/>
+   <addaction name="menuHelp"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
+  <widget class="QDockWidget" name="dockChannelPanel">
+   <property name="windowTitle">
+    <string>通道面板</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>1</number>
+   </attribute>
+   <widget class="QWidget" name="Channel">
+    <layout class="QGridLayout" name="gridLayout_2">
+     <item row="0" column="0">
+      <widget class="QListWidget" name="listWidget"/>
+     </item>
+    </layout>
+   </widget>
+  </widget>
+  <widget class="QDockWidget" name="dockDataPanel">
+   <property name="windowTitle">
+    <string>数据面板</string>
+   </property>
+   <attribute name="dockWidgetArea">
+    <number>2</number>
+   </attribute>
+   <widget class="QWidget" name="DataPanel">
+    <widget class="QLabel" name="label">
+     <property name="geometry">
+      <rect>
+       <x>30</x>
+       <y>30</y>
+       <width>40</width>
+       <height>12</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string>TextLabel</string>
+     </property>
+    </widget>
+   </widget>
+  </widget>
+  <action name="actionOpenConfig">
+   <property name="text">
+    <string>打开配置</string>
+   </property>
+   <property name="statusTip">
+    <string>加载通道配置</string>
+   </property>
+  </action>
+  <action name="actionExportData">
+   <property name="text">
+    <string>导出数据</string>
+   </property>
+   <property name="statusTip">
+    <string>导出到CSV</string>
+   </property>
+  </action>
+  <action name="actionExit">
+   <property name="text">
+    <string>退出</string>
+   </property>
+   <property name="toolTip">
+    <string>退出</string>
+   </property>
+   <property name="statusTip">
+    <string>退出程序</string>
+   </property>
+  </action>
+  <action name="actionToggleLeftDock">
+   <property name="text">
+    <string>通道面板</string>
+   </property>
+   <property name="statusTip">
+    <string>显示/隐藏左侧 Dock</string>
+   </property>
+  </action>
+  <action name="actionToggleRightDock">
+   <property name="text">
+    <string>数据面板</string>
+   </property>
+   <property name="statusTip">
+    <string>显示/隐藏右侧 Dock</string>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="text">
+    <string>关于</string>
+   </property>
+   <property name="statusTip">
+    <string>弹关于对话框</string>
+   </property>
+  </action>
  </widget>
  <resources/>
  <connections/>

@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 
+
 QT_BEGIN_NAMESPACE
 namespace Ui {
 class MainWindow;
@@ -19,5 +20,6 @@ public:
 
 private:
     Ui::MainWindow *ui;
+    void initMenuBar();
 };
 #endif // MAINWINDOW_H
