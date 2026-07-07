@@ -1,22 +1,27 @@
-cmake_minimum_required(VERSION 3.19)
+﻿cmake_minimum_required(VERSION 3.19)
 project(DataMonitor LANGUAGES CXX)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets SerialPort)
 
 qt_standard_project_setup()
 
 qt_add_executable(DataMonitor
     WIN32 MACOSX_BUNDLE
     app/main.cpp
+    core/Crc16.cpp
+    core/Crc16.h
     ui/MainWindow.cpp
     ui/MainWindow.h
     ui/mainwindow.ui
+    core/ProtocolParser.h core/ProtocolParser.cpp
+    core/ParsedFrame.h
 )
 
 target_link_libraries(DataMonitor
     PRIVATE
         Qt::Core
         Qt::Widgets
+        Qt::SerialPort
 )
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
