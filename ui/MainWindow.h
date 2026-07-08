@@ -2,7 +2,8 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-
+#include <QThread>
+#include "thread/CommWorker.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -21,5 +22,8 @@ public:
 private:
     Ui::MainWindow *ui;
     void initMenuBar();
+
+    QThread *m_workerThread = nullptr;
+    CommWorker *m_worker = nullptr;
 };
 #endif // MAINWINDOW_H

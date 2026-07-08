@@ -15,6 +15,10 @@ qt_add_executable(DataMonitor
     ui/mainwindow.ui
     core/ProtocolParser.h core/ProtocolParser.cpp
     core/ParsedFrame.h
+    core/CommunicationManager.h core/CommunicationManager.cpp
+    thread/CommWorker.h thread/CommWorker.cpp
+    ui/SettingsDialog.ui
+    ui/SettingsDialog.h ui/SettingsDialog.cpp
 )
 
 target_link_libraries(DataMonitor
