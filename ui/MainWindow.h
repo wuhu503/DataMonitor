@@ -11,6 +11,7 @@
 #include <QStandardItemModel>
 
 #include "thread/CommWorker.h"
+#include "thread/DatabaseWriter.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -33,6 +34,7 @@ private:
     void initWorker();
     void initChart();
     void initTable();
+    void loadHistory();
 
     QLineSeries *m_series = nullptr;
     QChart *m_chart = nullptr;
@@ -41,5 +43,8 @@ private:
 
     QThread *m_workerThread = nullptr;
     CommWorker *m_worker = nullptr;
+
+    QThread *m_dbThread = nullptr;
+    DatabaseWriter *m_dbWriter = nullptr;
 };
 #endif // MAINWINDOW_H

@@ -4,6 +4,8 @@
 #include <QVBoxLayout>
 #include <QtCharts>
 #include <QDateTime>
+#include <QSqlQuery>
+#include <QSqlError>
 #include "ui/SettingsDialog.h"
 
 MainWindow::MainWindow(QWidget *parent)
@@ -14,6 +16,7 @@ MainWindow::MainWindow(QWidget *parent)
     initMenuBar();
     initWorker();
     initChart();
+    initTable();
 }
 
 MainWindow::~MainWindow()
@@ -22,6 +25,10 @@ MainWindow::~MainWindow()
     if (m_workerThread && m_workerThread->isRunning()) {
         m_worker->stop();
         m_workerThread->wait(3000);
+    }
+    if (m_dbThread && m_dbThread->isRunning()) {
+        m_dbThread->quit();
+        m_dbThread->wait(3000);
     }
 }
 
@@ -62,6 +69,7 @@ void MainWindow::initMenuBar()
 
 void MainWindow::initWorker()
 {
+    // 通信线程
     m_workerThread = new QThread(this);
     m_worker = new CommWorker();
     m_worker->moveToThread(m_workerThread);
@@ -78,7 +86,6 @@ void MainWindow::initWorker()
             << new QStandardItem(QDateTime::currentDateTime().toString("HH:mm:ss.zzz"));
         m_tableModel->insertRow(0, row);
 
-        // 最多保留100行
         while (m_tableModel->rowCount() > 100) {
             m_tableModel->removeRow(m_tableModel->rowCount() - 1);
         }
@@ -98,8 +105,23 @@ void MainWindow::initWorker()
 
     connect(m_workerThread, &QThread::started, m_worker, &CommWorker::start);
     connect(m_worker, &CommWorker::finished, m_workerThread, &QThread::quit);
-
     m_workerThread->start();
+
+    // 数据库线程
+    m_dbThread = new QThread(this);
+    m_dbWriter = new DatabaseWriter("data.db");
+    m_dbWriter->moveToThread(m_dbThread);
+
+    connect(m_worker, &CommWorker::frameReceived, m_dbWriter, &DatabaseWriter::saveRecord);
+    connect(m_dbWriter, &DatabaseWriter::errorOccurred, this, [this](const QString &msg) {
+        ui->statusbar->showMessage(msg, 5000);
+    });
+    m_dbThread->start();
+
+    // Tab 切换时加载历史
+    connect(ui->tabWidget, &QTabWidget::currentChanged, this, [this](int index) {
+        if (index == 1) loadHistory();
+    });
 }
 
 void MainWindow::initChart()
@@ -139,4 +161,34 @@ void MainWindow::initTable()
     m_tableModel->setHorizontalHeaderLabels({"序号", "地址", "数值", "时间"});
     ui->tableView->setModel(m_tableModel);
     ui->tableView->horizontalHeader()->setStretchLastSection(true);
+}
+
+void MainWindow::loadHistory()
+{
+    QSqlDatabase readDb = QSqlDatabase::addDatabase("QSQLITE", "read_connection");
+    readDb.setDatabaseName("data.db");
+    if (!readDb.open()) return;
+
+    QSqlQuery query(readDb);
+    query.exec("SELECT address, value FROM data_records ORDER BY id DESC LIMIT 100");
+
+    QList<ParsedFrame> records;
+    while (query.next()) {
+        ParsedFrame f;
+        f.address = query.value(0).toUInt();
+        f.value = query.value(1).toUInt();
+        records.append(f);
+    }
+    readDb.close();
+    QSqlDatabase::removeDatabase("read_connection");
+
+    auto *model = new QStandardItemModel(records.size(), 3, this);
+    model->setHorizontalHeaderLabels({"地址", "数值", "序号"});
+    for (int i = 0; i < records.size(); ++i) {
+        model->setItem(i, 0, new QStandardItem("0x" + QString::number(records[i].address, 16)));
+        model->setItem(i, 1, new QStandardItem(QString::number(records[i].value)));
+        model->setItem(i, 2, new QStandardItem(QString::number(i + 1)));
+    }
+    ui->historyTable->setModel(model);
+    ui->historyTable->horizontalHeader()->setStretchLastSection(true);
 }

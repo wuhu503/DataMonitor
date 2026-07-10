@@ -94,7 +94,7 @@
    <widget class="QWidget" name="DataPanel">
     <layout class="QHBoxLayout" name="horizontalLayout">
      <item>
-      <widget class="QTableView" name="tableView"/>
+      <widget class="QTableView" name="historyTable"/>
      </item>
     </layout>
    </widget>
