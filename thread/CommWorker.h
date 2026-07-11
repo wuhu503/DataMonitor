@@ -17,6 +17,8 @@ public slots:
     void stop();
     void openPort(const QString &portName, qint32 baudRate);
     void closePort();
+    void loadSettings();
+    void saveSettings();
 
 signals:
     void frameReceived(const ParsedFrame &frame);

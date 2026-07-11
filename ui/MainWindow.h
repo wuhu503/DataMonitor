@@ -8,10 +8,10 @@
 #include <QChartView>
 #include <QLineSeries>
 #include <QValueAxis>
-#include <QStandardItemModel>
 
 #include "thread/CommWorker.h"
 #include "thread/DatabaseWriter.h"
+#include "core/FileLogger.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -33,18 +33,18 @@ private:
     void initMenuBar();
     void initWorker();
     void initChart();
-    void initTable();
     void loadHistory();
 
     QLineSeries *m_series = nullptr;
     QChart *m_chart = nullptr;
     int m_pointCount = 0;
-    QStandardItemModel *m_tableModel = nullptr;
+    int m_alarmThreshold = 800;
 
     QThread *m_workerThread = nullptr;
     CommWorker *m_worker = nullptr;
 
     QThread *m_dbThread = nullptr;
     DatabaseWriter *m_dbWriter = nullptr;
+    FileLogger *m_logger = nullptr;
 };
 #endif // MAINWINDOW_H

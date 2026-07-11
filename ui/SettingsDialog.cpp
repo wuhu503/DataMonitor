@@ -29,6 +29,12 @@ void SettingsDialog::refreshPortList()
     }
 }
 
+void SettingsDialog::setConnected(bool connected)
+{
+    m_connected = connected;
+    ui->btnConnect->setText(connected ? "断开串口" : "连接串口");
+}
+
 void SettingsDialog::on_btnRefresh_clicked()
 {
     refreshPortList();
@@ -37,14 +43,9 @@ void SettingsDialog::on_btnRefresh_clicked()
 void SettingsDialog::on_btnConnect_clicked()
 {
     if (!m_connected) {
-        QString portName = ui->comboPort->currentText();
-        qint32 baudRate = ui->comboBaud->currentText().toInt();
-        emit requestConnect(portName, baudRate);
-        ui->btnConnect->setText("断开串口");
-        m_connected = true;
+        emit requestConnect(ui->comboPort->currentText(), ui->comboBaud->currentText().toInt());
     } else {
         emit requestDisconnect();
-        ui->btnConnect->setText("连接串口");
-        m_connected = false;
+        setConnected(false);
     }
 }

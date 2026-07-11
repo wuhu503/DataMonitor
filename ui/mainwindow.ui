@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>MainWindow</class>
  <widget class="QMainWindow" name="MainWindow">
@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>578</width>
-    <height>432</height>
+    <width>960</width>
+    <height>640</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -39,7 +39,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>578</width>
+    <width>960</width>
      <height>21</height>
     </rect>
    </property>
@@ -73,9 +73,17 @@
    <property name="windowTitle">
     <string>通道面板</string>
    </property>
-   <attribute name="dockWidgetArea">
-    <number>1</number>
-   </attribute>
+   <attribute name="dockWidgetArea"><number>1</number></attribute>
+   <property name="features">
+    <set>QDockWidget::DockWidgetClosable|QDockWidget::DockWidgetMovable</set>
+   </property>
+   <property name="minimumSize">
+    <size>
+     <width>200</width>
+     <height>0</height>
+    </size>
+   </property>
+
    <widget class="QWidget" name="Channel">
     <layout class="QGridLayout" name="gridLayout_2">
      <item row="0" column="0">
@@ -91,6 +99,16 @@
    <attribute name="dockWidgetArea">
     <number>2</number>
    </attribute>
+   <property name="features">
+    <set>QDockWidget::DockWidgetClosable|QDockWidget::DockWidgetMovable</set>
+   </property>
+   <property name="minimumSize">
+    <size>
+     <width>200</width>
+     <height>0</height>
+    </size>
+   </property>
+
    <widget class="QWidget" name="DataPanel">
     <layout class="QHBoxLayout" name="horizontalLayout">
      <item>

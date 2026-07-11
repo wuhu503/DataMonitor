@@ -10,6 +10,7 @@ qt_add_executable(DataMonitor
     app/main.cpp
     core/Crc16.cpp
     core/Crc16.h
+    core/FileLogger.h core/FileLogger.cpp
     ui/MainWindow.cpp
     ui/MainWindow.h
     ui/mainwindow.ui
@@ -17,6 +18,7 @@ qt_add_executable(DataMonitor
     core/ParsedFrame.h
     core/CommunicationManager.h core/CommunicationManager.cpp
     thread/CommWorker.h thread/CommWorker.cpp
+    resources/styles/style.qss
     ui/SettingsDialog.ui
     ui/SettingsDialog.h ui/SettingsDialog.cpp
     db/DatabaseManager.h db/DatabaseManager.cpp

@@ -1,0 +1,57 @@
+﻿/* DataMonitor QSS Theme */
+
+QMainWindow {
+    background-color: #f5f5f5;
+}
+
+QMenuBar {
+    background-color: #ffffff;
+    border-bottom: 1px solid #dcdcdc;
+}
+
+QMenuBar::item:selected {
+    background-color: #e0e0e0;
+}
+
+QMenu {
+    background-color: #ffffff;
+    border: 1px solid #dcdcdc;
+}
+
+QMenu::item:selected {
+    background-color: #0078d4;
+    color: white;
+}
+
+QDockWidget::title {
+    background-color: #0078d4;
+    color: white;
+    padding: 4px;
+}
+
+QStatusBar {
+    background-color: #ffffff;
+    border-top: 1px solid #dcdcdc;
+}
+
+QTabWidget::pane {
+    border: 1px solid #dcdcdc;
+    background-color: #ffffff;
+}
+
+QTabBar::tab:selected {
+    background-color: #0078d4;
+    color: white;
+}
+
+QListView, QTableView {
+    border: 1px solid #e0e0e0;
+    background-color: #ffffff;
+    alternate-background-color: #f9f9f9;
+}
+
+QHeaderView::section {
+    background-color: #f0f0f0;
+    padding: 4px;
+    border: 1px solid #dcdcdc;
+}

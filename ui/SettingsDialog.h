@@ -16,6 +16,7 @@ class SettingsDialog : public QDialog
 public:
     explicit SettingsDialog(QWidget *parent = nullptr);
     ~SettingsDialog() override;
+    void setConnected(bool connected);
 
 signals:
     void requestConnect(const QString &portName, qint32 baudRate);
@@ -27,7 +28,6 @@ private slots:
 
 private:
     void refreshPortList();
-
     Ui::SettingsDialog *ui;
     bool m_connected = false;
 };

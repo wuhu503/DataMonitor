@@ -1,12 +1,16 @@
 ﻿#include "MainWindow.h"
 #include "ui_mainwindow.h"
 #include <QMessageBox>
+#include <QFileDialog>
+#include <QFile>
+#include <QTextStream>
 #include <QVBoxLayout>
 #include <QtCharts>
 #include <QDateTime>
 #include <QSqlQuery>
 #include <QSqlError>
 #include "ui/SettingsDialog.h"
+#include "core/FileLogger.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -16,7 +20,6 @@ MainWindow::MainWindow(QWidget *parent)
     initMenuBar();
     initWorker();
     initChart();
-    initTable();
 }
 
 MainWindow::~MainWindow()
@@ -48,7 +51,17 @@ void MainWindow::initMenuBar()
         SettingsDialog *dialog = new SettingsDialog(this);
         dialog->setAttribute(Qt::WA_DeleteOnClose);
 
-        connect(dialog, &SettingsDialog::requestConnect, this, [this](const QString &port, qint32 baud) {
+        connect(dialog, &SettingsDialog::requestConnect, this, [this, dialog](const QString &port, qint32 baud) {
+            auto *conn = new QMetaObject::Connection;
+            *conn = connect(m_worker, &CommWorker::portOpened, this, [dialog, conn](bool ok) {
+                if (ok) {
+                    dialog->setConnected(true);
+                } else {
+                    QMessageBox::warning(dialog, "连接失败", "无法打开串口，请检查端口号");
+                }
+                disconnect(*conn);
+                delete conn;
+            });
             QMetaObject::invokeMethod(m_worker, [this, port, baud]() {
                 m_worker->openPort(port, baud);
             });
@@ -63,7 +76,27 @@ void MainWindow::initMenuBar()
         dialog->show();
     });
     connect(ui->actionExportData,&QAction::triggered,this,[this](){
-        QMessageBox::information(this,"提示","导出功能将在v4版本中实现");
+        if (!m_series || m_series->count() == 0) {
+            QMessageBox::information(this,"提示","没有数据可导出");
+            return;
+        }
+        QString filePath = QFileDialog::getSaveFileName(this,"导出数据","","CSV 文件 (*.csv)");
+        if (filePath.isEmpty()) return;
+
+        QFile file(filePath);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QMessageBox::warning(this,"错误","无法创建文件");
+            return;
+        }
+
+        QTextStream out(&file);
+        out << "序号,数值\n";
+        auto points = m_series->pointsVector();
+        for (int i = 0; i < points.size(); ++i) {
+            out << i + 1 << "," << points[i].y() << "\n";
+        }
+        file.close();
+        QMessageBox::information(this,"完成","导出成功: " + filePath);
     });
 }
 
@@ -84,11 +117,24 @@ void MainWindow::initWorker()
             << new QStandardItem("0x" + QString::number(frame.address, 16))
             << new QStandardItem(QString::number(frame.value))
             << new QStandardItem(QDateTime::currentDateTime().toString("HH:mm:ss.zzz"));
-        m_tableModel->insertRow(0, row);
+ui->listWidget->insertItem(0,
+            QStringLiteral("%1 | 0x%2 | %3 | %4")
+                .arg(m_pointCount)
+                .arg(frame.address, 2, 16, QChar('0'))
+                .arg(frame.value)
+                .arg(QDateTime::currentDateTime().toString("HH:mm:ss.zzz")));
 
-        while (m_tableModel->rowCount() > 100) {
-            m_tableModel->removeRow(m_tableModel->rowCount() - 1);
-        }
+while (ui->listWidget->count() > 100) {
+            delete ui->listWidget->takeItem(ui->listWidget->count() - 1);
+}
+        if (frame.value > m_alarmThreshold) {
+            ui->listWidget->item(0)->setForeground(Qt::red);
+            ui->statusbar->showMessage(
+                QStringLiteral("警报: 通道 0x%1 数值 %2 超过阈值 %3")
+                    .arg(frame.address, 2, 16, QChar('0'))
+                    .arg(frame.value)
+                    .arg(m_alarmThreshold), 3000);
+       }
 
         if (m_pointCount > 200) {
             auto xAxes = m_chart->axes(Qt::Horizontal);
@@ -117,6 +163,9 @@ void MainWindow::initWorker()
         ui->statusbar->showMessage(msg, 5000);
     });
     m_dbThread->start();
+
+    m_logger = new FileLogger("data_monitor.log");
+    connect(m_worker, &CommWorker::frameReceived, m_logger, &FileLogger::write);
 
     // Tab 切换时加载历史
     connect(ui->tabWidget, &QTabWidget::currentChanged, this, [this](int index) {
@@ -153,14 +202,6 @@ void MainWindow::initChart()
     auto *layout = new QVBoxLayout(tab1);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(chartView);
-}
-
-void MainWindow::initTable()
-{
-    m_tableModel = new QStandardItemModel(0, 4, this);
-    m_tableModel->setHorizontalHeaderLabels({"序号", "地址", "数值", "时间"});
-    ui->historyTable->setModel(m_tableModel);
-    ui->historyTable->horizontalHeader()->setStretchLastSection(true);
 }
 
 void MainWindow::loadHistory()
