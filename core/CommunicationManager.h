@@ -18,6 +18,7 @@ public:
 signals:
     void frameReceived(const ParsedFrame &frame);
     void errorOccurred(const QString &message);
+    void disconnected();
 
 private slots:
     void onReadyRead();

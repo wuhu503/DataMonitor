@@ -32,6 +32,14 @@ bool CommunicationManager::openSerialPort(const QString &portName, qint32 baudRa
     }
 
     connect(m_serial, &QSerialPort::readyRead, this, &CommunicationManager::onReadyRead);
+    connect(m_serial, &QSerialPort::errorOccurred, this, [this](QSerialPort::SerialPortError err) {
+        if (err == QSerialPort::ResourceError) {
+            m_serial->close();
+            m_serial->deleteLater();
+            m_serial = nullptr;
+            emit disconnected();
+        }
+    });
     return true;
 }
 

@@ -159,8 +159,8 @@ void MainWindow::initTable()
 {
     m_tableModel = new QStandardItemModel(0, 4, this);
     m_tableModel->setHorizontalHeaderLabels({"序号", "地址", "数值", "时间"});
-    ui->tableView->setModel(m_tableModel);
-    ui->tableView->horizontalHeader()->setStretchLastSection(true);
+    ui->historyTable->setModel(m_tableModel);
+    ui->historyTable->horizontalHeader()->setStretchLastSection(true);
 }
 
 void MainWindow::loadHistory()
