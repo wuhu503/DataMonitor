@@ -1,21 +1,26 @@
-#ifndef COMMWORKER_H
+﻿#ifndef COMMWORKER_H
 #define COMMWORKER_H
 
 #include <QObject>
-#include "core/CommunicationManager.h"
 #include <QTimer>
+#include "core/CommunicationManager.h"
+#include "core/TcpCommunicationManager.h"
 
 class CommWorker : public QObject
 {
     Q_OBJECT
 
 public:
+    enum Mode { Serial, Tcp };
     explicit CommWorker(QObject *parent = nullptr);
+
+    void setMode(Mode mode);
 
 public slots:
     void start();
     void stop();
     void openPort(const QString &portName, qint32 baudRate);
+    void connectToHost(const QString &host, quint16 port);
     void closePort();
     void loadSettings();
     void saveSettings();
@@ -27,10 +32,16 @@ signals:
     void finished();
 
 private:
-    CommunicationManager *m_comm = nullptr;
+    void setupConnections(QObject *source);
+
+    Mode m_mode = Serial;
+    CommunicationManager *m_serialComm = nullptr;
+    TcpCommunicationManager *m_tcpComm = nullptr;
     bool m_running = false;
     QString m_lastPort;
     qint32 m_lastBaud = 0;
+    QString m_lastHost;
+    quint16 m_lastTcpPort = 502;
     QTimer *m_reconnectTimer = nullptr;
 };
 

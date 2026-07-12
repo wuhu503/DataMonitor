@@ -22,7 +22,7 @@
       </property>
       <widget class="QWidget" name="tab">
        <attribute name="title">
-        <string>实习曲线</string>
+        <string>实时曲线</string>
        </attribute>
       </widget>
       <widget class="QWidget" name="tab_2">

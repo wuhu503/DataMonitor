@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include <QThread>
+#include <QMap>
 
 #include <QChart>
 #include <QChartView>
@@ -35,7 +36,7 @@ private:
     void initChart();
     void loadHistory();
 
-    QLineSeries *m_series = nullptr;
+    QMap<uint8_t, QLineSeries *> m_seriesMap;
     QChart *m_chart = nullptr;
     int m_pointCount = 0;
     int m_alarmThreshold = 800;
@@ -46,5 +47,6 @@ private:
     QThread *m_dbThread = nullptr;
     DatabaseWriter *m_dbWriter = nullptr;
     FileLogger *m_logger = nullptr;
+    bool m_isConnecting = false;
 };
 #endif // MAINWINDOW_H

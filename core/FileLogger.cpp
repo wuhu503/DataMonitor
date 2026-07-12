@@ -1,5 +1,6 @@
 ﻿#include "FileLogger.h"
 #include <QDateTime>
+#include <QMutexLocker>
 
 FileLogger::FileLogger(const QString &filePath, QObject *parent)
     : QObject(parent), m_file(filePath)
@@ -20,6 +21,7 @@ FileLogger::~FileLogger()
 
 void FileLogger::write(const ParsedFrame &frame)
 {
+    QMutexLocker lock(&m_mutex);
     if (!m_file.isOpen()) return;
     m_stream << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss.zzz")
              << " | ADDR: 0x" << QString::number(frame.address, 16)

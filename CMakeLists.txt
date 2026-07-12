@@ -1,7 +1,7 @@
 ﻿cmake_minimum_required(VERSION 3.19)
 project(DataMonitor LANGUAGES CXX)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets SerialPort Charts Sql)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets SerialPort Charts Sql Network)
 
 qt_standard_project_setup()
 
@@ -17,6 +17,7 @@ qt_add_executable(DataMonitor
     core/ProtocolParser.h core/ProtocolParser.cpp
     core/ParsedFrame.h
     core/CommunicationManager.h core/CommunicationManager.cpp
+    core/TcpCommunicationManager.h core/TcpCommunicationManager.cpp
     thread/CommWorker.h thread/CommWorker.cpp
     resources/styles/style.qss
     ui/SettingsDialog.ui
@@ -32,6 +33,7 @@ target_link_libraries(DataMonitor
         Qt::SerialPort
         Qt::Charts
         Qt::Sql
+        Qt::Network
 )
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}

@@ -1,4 +1,4 @@
-#ifndef SETTINGSDIALOG_H
+﻿#ifndef SETTINGSDIALOG_H
 #define SETTINGSDIALOG_H
 
 #include <QDialog>
@@ -19,17 +19,21 @@ public:
     void setConnected(bool connected);
 
 signals:
-    void requestConnect(const QString &portName, qint32 baudRate);
+    void requestSerialConnect(const QString &portName, qint32 baudRate);
+    void requestTcpConnect(const QString &host, quint16 port);
     void requestDisconnect();
 
 private slots:
     void on_btnRefresh_clicked();
     void on_btnConnect_clicked();
+    void on_tabWidget_currentChanged(int index);
 
 private:
     void refreshPortList();
+
     Ui::SettingsDialog *ui;
     bool m_connected = false;
+    bool m_isTcpMode = false;
 };
 
 #endif // SETTINGSDIALOG_H

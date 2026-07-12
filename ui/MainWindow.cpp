@@ -51,11 +51,12 @@ void MainWindow::initMenuBar()
         SettingsDialog *dialog = new SettingsDialog(this);
         dialog->setAttribute(Qt::WA_DeleteOnClose);
 
-        connect(dialog, &SettingsDialog::requestConnect, this, [this, dialog](const QString &port, qint32 baud) {
+        connect(dialog, &SettingsDialog::requestSerialConnect, this, [this, dialog](const QString &port, qint32 baud) {
             auto *conn = new QMetaObject::Connection;
-            *conn = connect(m_worker, &CommWorker::portOpened, this, [dialog, conn](bool ok) {
+            *conn = connect(m_worker, &CommWorker::portOpened, this, [this, dialog, conn](bool ok) {
                 if (ok) {
                     dialog->setConnected(true);
+                    ui->statusbar->showMessage("串口连接成功", 3000);
                 } else {
                     QMessageBox::warning(dialog, "连接失败", "无法打开串口，请检查端口号");
                 }
@@ -67,16 +68,46 @@ void MainWindow::initMenuBar()
             });
         });
 
-        connect(dialog, &SettingsDialog::requestDisconnect, this, [this]() {
+        connect(dialog, &SettingsDialog::requestDisconnect, this, [this, dialog]() {
+            dialog->setConnected(false);
             QMetaObject::invokeMethod(m_worker, [this]() {
                 m_worker->closePort();
             });
         });
 
         dialog->show();
+        connect(dialog, &SettingsDialog::requestTcpConnect, this, [this, dialog](const QString &host, quint16 port) {
+            if (m_isConnecting) return;
+            m_isConnecting = true;
+            auto *conn = new QMetaObject::Connection;
+            *conn = connect(m_worker, &CommWorker::portOpened, this, [this, dialog, conn](bool ok) {
+                m_isConnecting = false;
+                if (ok) {
+                    dialog->setConnected(true);
+                    ui->statusbar->showMessage("TCP 连接成功", 3000);
+                } else {
+                    QMessageBox::warning(dialog, "连接失败", "无法连接到 TCP 主机");
+                }
+                disconnect(*conn);
+                delete conn;
+            });
+
+            m_worker->setMode(CommWorker::Tcp);
+            m_worker->stop();
+            if (m_workerThread->isRunning()) {
+                m_workerThread->quit();
+                m_workerThread->wait(3000);
+            }
+            connect(m_workerThread, &QThread::started, this, [this, host, port]() {
+                QMetaObject::invokeMethod(m_worker, [this, host, port]() {
+                    m_worker->connectToHost(host, port);
+                });
+            }, Qt::SingleShotConnection);
+            m_workerThread->start();
+        });
     });
     connect(ui->actionExportData,&QAction::triggered,this,[this](){
-        if (!m_series || m_series->count() == 0) {
+        if (m_seriesMap.isEmpty()) {
             QMessageBox::information(this,"提示","没有数据可导出");
             return;
         }
@@ -91,9 +122,13 @@ void MainWindow::initMenuBar()
 
         QTextStream out(&file);
         out << "序号,数值\n";
-        auto points = m_series->pointsVector();
-        for (int i = 0; i < points.size(); ++i) {
-            out << i + 1 << "," << points[i].y() << "\n";
+        out << "通道,序号,数值\n";
+        for (auto it2 = m_seriesMap.begin(); it2 != m_seriesMap.end(); ++it2) {
+            auto pts = it2.value()->pointsVector();
+            for (int i = 0; i < pts.size(); ++i) {
+                out << "0x" << QString::number(it2.key(), 16) << ","
+                    << i + 1 << "," << pts[i].y() << "\n";
+            }
         }
         file.close();
         QMessageBox::information(this,"完成","导出成功: " + filePath);
@@ -108,8 +143,9 @@ void MainWindow::initWorker()
     m_worker->moveToThread(m_workerThread);
 
     connect(m_worker, &CommWorker::frameReceived, this, [this](const ParsedFrame &frame) {
-        if (!m_series) return;
-        m_series->append(++m_pointCount, frame.value);
+        auto it = m_seriesMap.find(frame.address);
+        if (it == m_seriesMap.end()) return;
+        it.value()->append(++m_pointCount, frame.value);
 
         // 插入表格行
         QList<QStandardItem *> row;
@@ -135,6 +171,15 @@ while (ui->listWidget->count() > 100) {
                     .arg(frame.value)
                     .arg(m_alarmThreshold), 3000);
        }
+
+        // Auto-scale Y axis
+        auto yAxes = m_chart->axes(Qt::Vertical);
+        if (!yAxes.isEmpty()) {
+            auto *yAxis = qobject_cast<QValueAxis *>(yAxes.first());
+            if (yAxis && frame.value > yAxis->max()) {
+                yAxis->setRange(0, frame.value * 1.2);
+            }
+        }
 
         if (m_pointCount > 200) {
             auto xAxes = m_chart->axes(Qt::Horizontal);
@@ -175,25 +220,34 @@ while (ui->listWidget->count() > 100) {
 
 void MainWindow::initChart()
 {
-    m_series = new QLineSeries();
-    m_series->setName("通道1");
-
     m_chart = new QChart();
-    m_chart->addSeries(m_series);
     m_chart->setTitle("实时数据曲线");
     m_chart->setAnimationOptions(QChart::SeriesAnimations);
+
+    QColor colors[] = {Qt::red, Qt::blue, Qt::green, Qt::magenta};
+    uint8_t addrs[] = {0x01, 0x02, 0x03, 0x04};
+
+    for (int i = 0; i < 4; ++i) {
+        auto *series = new QLineSeries();
+        series->setName(QString("通道 0x%1").arg(addrs[i], 2, 16, QChar(0x30)));
+        m_chart->addSeries(series);
+        m_seriesMap[addrs[i]] = series;
+    }
 
     auto *axisX = new QValueAxis();
     axisX->setTitleText("采样点");
     axisX->setRange(0, 100);
     m_chart->addAxis(axisX, Qt::AlignBottom);
-    m_series->attachAxis(axisX);
 
     auto *axisY = new QValueAxis();
     axisY->setTitleText("数值");
     axisY->setRange(0, 1000);
     m_chart->addAxis(axisY, Qt::AlignLeft);
-    m_series->attachAxis(axisY);
+
+    for (auto *s : m_seriesMap) {
+        s->attachAxis(axisX);
+        s->attachAxis(axisY);
+    }
 
     auto *chartView = new QChartView(m_chart);
     chartView->setRenderHint(QPainter::Antialiasing);
@@ -203,7 +257,6 @@ void MainWindow::initChart()
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(chartView);
 }
-
 void MainWindow::loadHistory()
 {
     QSqlDatabase readDb = QSqlDatabase::addDatabase("QSQLITE", "read_connection");
