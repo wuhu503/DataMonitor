@@ -1,4 +1,4 @@
-﻿#include "ProtocolParser.h"
+#include "ProtocolParser.h"
 #include "Crc16.h"
 
 ProtocolParser::ProtocolParser(uint8_t address, uint8_t functionCode)
@@ -13,28 +13,36 @@ void ProtocolParser::feed(const QByteArray &data)
 
 bool ProtocolParser::hasFrame()
 {
-    // 从缓冲区里找完整帧
-    while (m_buffer.size() >= kMinFrameSize) {
+    int offset = 0;
+    while (offset + kMinFrameSize <= m_buffer.size()) {
         // 检查地址字节
-        if (static_cast<uint8_t>(m_buffer[0]) != m_address) {
-            m_buffer.remove(0, 1);  // 不是我们的设备，跳过
+        if (static_cast<uint8_t>(m_buffer[offset]) != m_address) {
+            offset++;
             continue;
         }
 
         // 检查功能码
-        if (static_cast<uint8_t>(m_buffer[1]) != m_functionCode) {
-            m_buffer.remove(0, 1);
+        if (static_cast<uint8_t>(m_buffer[offset + 1]) != m_functionCode) {
+            offset++;
             continue;
         }
 
         // 检查 CRC
-        QByteArray frame = m_buffer.left(kMinFrameSize);
+        QByteArray frame = m_buffer.mid(offset, kMinFrameSize);
         if (!Crc16::verify(frame)) {
-            m_buffer.remove(0, 1);
+            offset++;
             continue;
         }
 
+        // 一次性移除无效数据
+        if (offset > 0) {
+            m_buffer.remove(0, offset);
+        }
         return true;  // 找到一帧有效数据
+    }
+    // 移除无效数据
+    if (offset > 0) {
+        m_buffer.remove(0, offset);
     }
     return false;
 }

@@ -1,4 +1,4 @@
-﻿#include "Crc16.h"
+#include "Crc16.h"
 
 namespace Crc16 {
 
@@ -17,7 +17,7 @@ uint16_t calculate(const QByteArray &data)
             }
         }
     }
-    return crc ^ 0x0000;
+    return crc;
 }
 
 bool verify(const QByteArray &data)

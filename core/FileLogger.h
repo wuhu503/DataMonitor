@@ -16,6 +16,7 @@ public:
     explicit FileLogger(const QString &filePath, QObject *parent = nullptr);
     ~FileLogger();
 
+public slots:
     void write(const ParsedFrame &frame);
 
 private:

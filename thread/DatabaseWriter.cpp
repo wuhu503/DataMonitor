@@ -1,11 +1,14 @@
 #include "DatabaseWriter.h"
 #include "core/ParsedFrame.h"
+#include <QTimer>
 
 DatabaseWriter::DatabaseWriter(const QString &dbPath, QObject *parent)
     : QObject(parent)
 {
     if (!m_db.open(dbPath)) {
-        emit errorOccurred("打开数据库失败");
+        QTimer::singleShot(0, this, [this]() {
+            emit errorOccurred("打开数据库失败");
+        });
     }
 }
 

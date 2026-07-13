@@ -1,4 +1,4 @@
-﻿#include "CommWorker.h"
+#include "CommWorker.h"
 #include <QSettings>
 
 CommWorker::CommWorker(QObject *parent)
@@ -15,6 +15,20 @@ void CommWorker::start()
 {
     m_running = true;
     loadSettings();
+
+    // 清理旧的通信管理器
+    if (m_serialComm) {
+        m_serialComm->deleteLater();
+        m_serialComm = nullptr;
+    }
+    if (m_tcpComm) {
+        m_tcpComm->deleteLater();
+        m_tcpComm = nullptr;
+    }
+    if (m_reconnectTimer) {
+        m_reconnectTimer->deleteLater();
+        m_reconnectTimer = nullptr;
+    }
 
     if (m_mode == Tcp) {
         m_tcpComm = new TcpCommunicationManager(this);

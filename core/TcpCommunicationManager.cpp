@@ -15,8 +15,6 @@ bool TcpCommunicationManager::connectToHost(const QString &host, quint16 port)
     if (m_socket) disconnectFromHost();
 
     m_socket = new QTcpSocket(this);
-    m_socket->connectToHost(host, port);
-
     m_everConnected = false;
 
     connect(m_socket, &QTcpSocket::connected, this, [this]() {

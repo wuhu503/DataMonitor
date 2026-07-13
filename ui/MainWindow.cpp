@@ -1,4 +1,4 @@
-﻿#include "MainWindow.h"
+#include "MainWindow.h"
 #include "ui_mainwindow.h"
 #include <QMessageBox>
 #include <QFileDialog>
@@ -9,6 +9,7 @@
 #include <QDateTime>
 #include <QSqlQuery>
 #include <QSqlError>
+#include <QTimer>
 #include "ui/SettingsDialog.h"
 #include "core/FileLogger.h"
 
@@ -79,31 +80,42 @@ void MainWindow::initMenuBar()
         connect(dialog, &SettingsDialog::requestTcpConnect, this, [this, dialog](const QString &host, quint16 port) {
             if (m_isConnecting) return;
             m_isConnecting = true;
-            auto *conn = new QMetaObject::Connection;
-            *conn = connect(m_worker, &CommWorker::portOpened, this, [this, dialog, conn](bool ok) {
-                m_isConnecting = false;
-                if (ok) {
-                    dialog->setConnected(true);
-                    ui->statusbar->showMessage("TCP 连接成功", 3000);
-                } else {
-                    QMessageBox::warning(dialog, "连接失败", "无法连接到 TCP 主机");
-                }
-                disconnect(*conn);
-                delete conn;
-            });
 
             m_worker->setMode(CommWorker::Tcp);
             m_worker->stop();
+
             if (m_workerThread->isRunning()) {
                 m_workerThread->quit();
                 m_workerThread->wait(3000);
             }
-            connect(m_workerThread, &QThread::started, this, [this, host, port]() {
-                QMetaObject::invokeMethod(m_worker, [this, host, port]() {
-                    m_worker->connectToHost(host, port);
+
+            QTimer::singleShot(100, this, [this, host, port, dialog]() {
+                auto *conn = new QMetaObject::Connection;
+                *conn = connect(m_worker, &CommWorker::portOpened, this, [this, dialog, conn](bool ok) {
+                    m_isConnecting = false;
+                    if (ok) {
+                        dialog->setConnected(true);
+                        ui->statusbar->showMessage("TCP 连接成功", 3000);
+                    } else {
+                        QMessageBox::warning(dialog, "连接失败", "无法连接到 TCP 主机");
+                    }
+                    disconnect(*conn);
+                    delete conn;
                 });
-            }, Qt::SingleShotConnection);
-            m_workerThread->start();
+
+                if (!m_workerThread->isRunning()) {
+                    connect(m_workerThread, &QThread::started, this, [this, host, port]() {
+                        QMetaObject::invokeMethod(m_worker, [this, host, port]() {
+                            m_worker->connectToHost(host, port);
+                        });
+                    }, Qt::SingleShotConnection);
+                    m_workerThread->start();
+                } else {
+                    QMetaObject::invokeMethod(m_worker, [this, host, port]() {
+                        m_worker->connectToHost(host, port);
+                    });
+                }
+            });
         });
     });
     connect(ui->actionExportData,&QAction::triggered,this,[this](){
@@ -121,7 +133,6 @@ void MainWindow::initMenuBar()
         }
 
         QTextStream out(&file);
-        out << "序号,数值\n";
         out << "通道,序号,数值\n";
         for (auto it2 = m_seriesMap.begin(); it2 != m_seriesMap.end(); ++it2) {
             auto pts = it2.value()->pointsVector();
@@ -144,25 +155,23 @@ void MainWindow::initWorker()
 
     connect(m_worker, &CommWorker::frameReceived, this, [this](const ParsedFrame &frame) {
         auto it = m_seriesMap.find(frame.address);
-        if (it == m_seriesMap.end()) return;
+        if (it == m_seriesMap.end()) {
+            qWarning() << "未知地址:" << frame.address;
+            return;
+        }
         it.value()->append(++m_pointCount, frame.value);
 
-        // 插入表格行
-        QList<QStandardItem *> row;
-        row << new QStandardItem(QString::number(m_pointCount))
-            << new QStandardItem("0x" + QString::number(frame.address, 16))
-            << new QStandardItem(QString::number(frame.value))
-            << new QStandardItem(QDateTime::currentDateTime().toString("HH:mm:ss.zzz"));
-ui->listWidget->insertItem(0,
+        ui->listWidget->insertItem(0,
             QStringLiteral("%1 | 0x%2 | %3 | %4")
                 .arg(m_pointCount)
                 .arg(frame.address, 2, 16, QChar('0'))
                 .arg(frame.value)
                 .arg(QDateTime::currentDateTime().toString("HH:mm:ss.zzz")));
 
-while (ui->listWidget->count() > 100) {
+        while (ui->listWidget->count() > 100) {
             delete ui->listWidget->takeItem(ui->listWidget->count() - 1);
-}
+        }
+
         if (frame.value > m_alarmThreshold) {
             ui->listWidget->item(0)->setForeground(Qt::red);
             ui->statusbar->showMessage(
@@ -170,7 +179,7 @@ while (ui->listWidget->count() > 100) {
                     .arg(frame.address, 2, 16, QChar('0'))
                     .arg(frame.value)
                     .arg(m_alarmThreshold), 3000);
-       }
+        }
 
         // Auto-scale Y axis
         auto yAxes = m_chart->axes(Qt::Vertical);
@@ -224,7 +233,6 @@ void MainWindow::initChart()
     m_chart->setTitle("实时数据曲线");
     m_chart->setAnimationOptions(QChart::SeriesAnimations);
 
-    QColor colors[] = {Qt::red, Qt::blue, Qt::green, Qt::magenta};
     uint8_t addrs[] = {0x01, 0x02, 0x03, 0x04};
 
     for (int i = 0; i < 4; ++i) {
@@ -275,6 +283,8 @@ void MainWindow::loadHistory()
     }
     readDb.close();
     QSqlDatabase::removeDatabase("read_connection");
+
+    ui->historyTable->setModel(nullptr);
 
     auto *model = new QStandardItemModel(records.size(), 3, this);
     model->setHorizontalHeaderLabels({"地址", "数值", "序号"});

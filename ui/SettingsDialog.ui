@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>串口配置</string>
+   <string>连接配置</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
