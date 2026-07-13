@@ -53,17 +53,26 @@ void MainWindow::initMenuBar()
         dialog->setAttribute(Qt::WA_DeleteOnClose);
 
         connect(dialog, &SettingsDialog::requestSerialConnect, this, [this, dialog](const QString &port, qint32 baud) {
-            auto *conn = new QMetaObject::Connection;
-            *conn = connect(m_worker, &CommWorker::portOpened, this, [this, dialog, conn](bool ok) {
+            if (m_isConnecting) return;
+            m_isConnecting = true;
+            
+            // 断开旧连接
+            if (m_serialConn) {
+                disconnect(m_serialConn);
+                m_serialConn = QMetaObject::Connection();
+            }
+            
+            // 建立新连接
+            m_serialConn = connect(m_worker, &CommWorker::portOpened, this, [this, dialog](bool ok) {
+                m_isConnecting = false;
                 if (ok) {
                     dialog->setConnected(true);
                     ui->statusbar->showMessage("串口连接成功", 3000);
                 } else {
                     QMessageBox::warning(dialog, "连接失败", "无法打开串口，请检查端口号");
                 }
-                disconnect(*conn);
-                delete conn;
             });
+            
             QMetaObject::invokeMethod(m_worker, [this, port, baud]() {
                 m_worker->openPort(port, baud);
             });
@@ -89,22 +98,26 @@ void MainWindow::initMenuBar()
             // 2. 设置新模式
             m_worker->setMode(CommWorker::Tcp);
 
-            // 3. 连接信号
-            auto *connOk = new QMetaObject::Connection;
-            *connOk = connect(m_worker, &CommWorker::tcpConnected, this, [this, dialog, connOk]() {
+            // 3. 断开旧连接
+            if (m_tcpConnOk) {
+                disconnect(m_tcpConnOk);
+                m_tcpConnOk = QMetaObject::Connection();
+            }
+            if (m_tcpConnFail) {
+                disconnect(m_tcpConnFail);
+                m_tcpConnFail = QMetaObject::Connection();
+            }
+            
+            // 4. 建立新连接
+            m_tcpConnOk = connect(m_worker, &CommWorker::tcpConnected, this, [this, dialog]() {
                 m_isConnecting = false;
                 dialog->setConnected(true);
                 ui->statusbar->showMessage("TCP 连接成功", 3000);
-                disconnect(*connOk);
-                delete connOk;
             });
 
-            auto *connFail = new QMetaObject::Connection;
-            *connFail = connect(m_worker, &CommWorker::tcpConnectFailed, this, [this, dialog, connFail](const QString &msg) {
+            m_tcpConnFail = connect(m_worker, &CommWorker::tcpConnectFailed, this, [this, dialog](const QString &msg) {
                 m_isConnecting = false;
                 QMessageBox::warning(dialog, "连接失败", msg);
-                disconnect(*connFail);
-                delete connFail;
             });
 
             // 4. 启动线程（如果未运行）并连接
@@ -157,6 +170,7 @@ void MainWindow::initWorker()
     m_worker = new CommWorker();
     m_worker->moveToThread(m_workerThread);
 
+    // 信号流向：CommWorker::frameReceived -> MainWindow (UI 更新)
     connect(m_worker, &CommWorker::frameReceived, this, [this](const ParsedFrame &frame) {
         auto it = m_seriesMap.find(frame.address);
         if (it == m_seriesMap.end()) {
@@ -216,6 +230,7 @@ void MainWindow::initWorker()
     m_dbWriter = new DatabaseWriter("data.db");
     m_dbWriter->moveToThread(m_dbThread);
 
+    // 信号流向：CommWorker::frameReceived -> DatabaseWriter (数据库写入)
     connect(m_worker, &CommWorker::frameReceived, m_dbWriter, &DatabaseWriter::saveRecord);
     connect(m_dbWriter, &DatabaseWriter::errorOccurred, this, [this](const QString &msg) {
         ui->statusbar->showMessage(msg, 5000);
@@ -223,6 +238,7 @@ void MainWindow::initWorker()
     m_dbThread->start();
 
     m_logger = new FileLogger("data_monitor.log");
+    // 信号流向：CommWorker::frameReceived -> FileLogger (日志写入)
     connect(m_worker, &CommWorker::frameReceived, m_logger, &FileLogger::write);
 
     // Tab 切换时加载历史

@@ -21,6 +21,7 @@ public:
 
 private:
     QSqlDatabase m_db;
+    QString m_connName;
 };
 
 #endif // DATABASEMANAGER_H

@@ -3,7 +3,6 @@
 #include <QDateTime>
 #include <QSqlError>
 #include <QSqlRecord>
-#include <QUuid>
 
 
 DatabaseManager::DatabaseManager() {}
@@ -15,8 +14,14 @@ DatabaseManager::~DatabaseManager()
 
 bool DatabaseManager::open(const QString &dbPath)
 {
-    QString connName = "data_connection_" + QUuid::createUuid().toString(QUuid::WithoutBraces);
-    m_db = QSqlDatabase::addDatabase("QSQLITE", connName);
+    m_connName = "data_connection";
+    
+    // 如果连接已存在，先清理
+    if (QSqlDatabase::contains(m_connName)) {
+        QSqlDatabase::removeDatabase(m_connName);
+    }
+    
+    m_db = QSqlDatabase::addDatabase("QSQLITE", m_connName);
     m_db.setDatabaseName(dbPath);
 
     if (!m_db.open()) {
@@ -39,6 +44,11 @@ void DatabaseManager::close()
 {
     if (m_db.isOpen()) {
         m_db.close();
+    }
+    // 清理连接
+    if (!m_connName.isEmpty()) {
+        QSqlDatabase::removeDatabase(m_connName);
+        m_connName.clear();
     }
 }
 

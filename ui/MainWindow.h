@@ -48,5 +48,10 @@ private:
     DatabaseWriter *m_dbWriter = nullptr;
     FileLogger *m_logger = nullptr;
     bool m_isConnecting = false;
+    
+    // 信号连接管理
+    QMetaObject::Connection m_serialConn;
+    QMetaObject::Connection m_tcpConnOk;
+    QMetaObject::Connection m_tcpConnFail;
 };
 #endif // MAINWINDOW_H
