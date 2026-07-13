@@ -81,45 +81,45 @@ void MainWindow::initMenuBar()
             if (m_isConnecting) return;
             m_isConnecting = true;
 
+            // 1. 先断开旧连接（不调用 stop，避免线程退出）
+            QMetaObject::invokeMethod(m_worker, [this]() {
+                m_worker->closePort();
+            });
+
+            // 2. 设置新模式
             m_worker->setMode(CommWorker::Tcp);
-            m_worker->stop();
 
-            if (m_workerThread->isRunning()) {
-                m_workerThread->quit();
-                m_workerThread->wait(3000);
-            }
+            // 3. 连接信号
+            auto *connOk = new QMetaObject::Connection;
+            *connOk = connect(m_worker, &CommWorker::tcpConnected, this, [this, dialog, connOk]() {
+                m_isConnecting = false;
+                dialog->setConnected(true);
+                ui->statusbar->showMessage("TCP 连接成功", 3000);
+                disconnect(*connOk);
+                delete connOk;
+            });
 
-            QTimer::singleShot(100, this, [this, host, port, dialog]() {
-                auto *connOk = new QMetaObject::Connection;
-                *connOk = connect(m_worker, &CommWorker::tcpConnected, this, [this, dialog, connOk]() {
-                    m_isConnecting = false;
-                    dialog->setConnected(true);
-                    ui->statusbar->showMessage("TCP 连接成功", 3000);
-                    disconnect(*connOk);
-                    delete connOk;
-                });
+            auto *connFail = new QMetaObject::Connection;
+            *connFail = connect(m_worker, &CommWorker::tcpConnectFailed, this, [this, dialog, connFail](const QString &msg) {
+                m_isConnecting = false;
+                QMessageBox::warning(dialog, "连接失败", msg);
+                disconnect(*connFail);
+                delete connFail;
+            });
 
-                auto *connFail = new QMetaObject::Connection;
-                *connFail = connect(m_worker, &CommWorker::tcpConnectFailed, this, [this, dialog, connFail](const QString &msg) {
-                    m_isConnecting = false;
-                    QMessageBox::warning(dialog, "连接失败", msg);
-                    disconnect(*connFail);
-                    delete connFail;
-                });
-
-                if (!m_workerThread->isRunning()) {
-                    connect(m_workerThread, &QThread::started, this, [this, host, port]() {
-                        QMetaObject::invokeMethod(m_worker, [this, host, port]() {
-                            m_worker->connectToHost(host, port);
-                        });
-                    }, Qt::SingleShotConnection);
-                    m_workerThread->start();
-                } else {
+            // 4. 启动线程（如果未运行）并连接
+            if (!m_workerThread->isRunning()) {
+                connect(m_workerThread, &QThread::started, this, [this, host, port]() {
                     QMetaObject::invokeMethod(m_worker, [this, host, port]() {
                         m_worker->connectToHost(host, port);
                     });
-                }
-            });
+                }, Qt::SingleShotConnection);
+                m_workerThread->start();
+            } else {
+                QMetaObject::invokeMethod(m_worker, [this, host, port]() {
+                    m_worker->connectToHost(host, port);
+                });
+            }
         });
     });
     connect(ui->actionExportData,&QAction::triggered,this,[this](){

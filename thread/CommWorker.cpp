@@ -97,7 +97,7 @@ void CommWorker::openPort(const QString &portName, qint32 baudRate)
 void CommWorker::connectToHost(const QString &host, quint16 port)
 {
     if (!m_tcpComm) {
-        emit portOpened(false);
+        emit tcpConnectFailed("TCP 通信管理器未初始化");
         return;
     }
     m_lastHost = host;

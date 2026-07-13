@@ -1,5 +1,6 @@
 ﻿#include "SettingsDialog.h"
 #include "ui_SettingsDialog.h"
+#include <QMessageBox>
 
 SettingsDialog::SettingsDialog(QWidget *parent)
     : QDialog(parent)
@@ -28,6 +29,9 @@ void SettingsDialog::setConnected(bool connected)
 
 void SettingsDialog::refreshPortList()
 {
+    // 保存当前选择
+    QString currentPort = ui->comboPort->currentText();
+    
     ui->comboPort->clear();
     const auto ports = QSerialPortInfo::availablePorts();
     for (const auto &port : ports) {
@@ -35,6 +39,12 @@ void SettingsDialog::refreshPortList()
     }
     if (ports.isEmpty()) {
         ui->comboPort->addItem("未检测到串口");
+    }
+    
+    // 恢复之前的选择（如果还存在）
+    int index = ui->comboPort->findText(currentPort);
+    if (index >= 0) {
+        ui->comboPort->setCurrentIndex(index);
     }
 }
 
@@ -66,7 +76,11 @@ void SettingsDialog::on_btnConnect_clicked()
         if (host.isEmpty()) return;
         emit requestTcpConnect(host, static_cast<quint16>(ui->spinBoxPort->value()));
     } else {
-        emit requestSerialConnect(ui->comboPort->currentText(),
-                                   ui->comboBaud->currentText().toInt());
+        QString portName = ui->comboPort->currentText();
+        if (portName.isEmpty() || portName == "未检测到串口") {
+            QMessageBox::warning(this, "提示", "请先选择有效的串口");
+            return;
+        }
+        emit requestSerialConnect(portName, ui->comboBaud->currentText().toInt());
     }
 }
