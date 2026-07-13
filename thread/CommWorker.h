@@ -29,6 +29,8 @@ signals:
     void frameReceived(const ParsedFrame &frame);
     void errorOccurred(const QString &message);
     void portOpened(bool success);
+    void tcpConnected();
+    void tcpConnectFailed(const QString &message);
     void finished();
 
 private:

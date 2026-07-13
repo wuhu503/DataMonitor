@@ -64,6 +64,12 @@ void CommWorker::setupConnections(QObject *source)
         connect(tcp, &TcpCommunicationManager::errorOccurred, this, &CommWorker::errorOccurred);
         connect(tcp, &TcpCommunicationManager::disconnected,
                 this, [this]() { m_reconnectTimer->start(); });
+        connect(tcp, &TcpCommunicationManager::connectionEstablished, this, [this]() {
+            emit tcpConnected();
+        });
+        connect(tcp, &TcpCommunicationManager::connectionFailed, this, [this](const QString &msg) {
+            emit tcpConnectFailed(msg);
+        });
     }
 }
 
@@ -90,10 +96,14 @@ void CommWorker::openPort(const QString &portName, qint32 baudRate)
 
 void CommWorker::connectToHost(const QString &host, quint16 port)
 {
-    if (!m_tcpComm) return;
+    if (!m_tcpComm) {
+        emit portOpened(false);
+        return;
+    }
     m_lastHost = host;
     m_lastTcpPort = port;
     m_tcpComm->connectToHost(host, port);
+    saveSettings();
 }
 
 void CommWorker::closePort()

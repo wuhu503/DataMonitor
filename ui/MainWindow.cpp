@@ -90,17 +90,21 @@ void MainWindow::initMenuBar()
             }
 
             QTimer::singleShot(100, this, [this, host, port, dialog]() {
-                auto *conn = new QMetaObject::Connection;
-                *conn = connect(m_worker, &CommWorker::portOpened, this, [this, dialog, conn](bool ok) {
+                auto *connOk = new QMetaObject::Connection;
+                *connOk = connect(m_worker, &CommWorker::tcpConnected, this, [this, dialog, connOk]() {
                     m_isConnecting = false;
-                    if (ok) {
-                        dialog->setConnected(true);
-                        ui->statusbar->showMessage("TCP 连接成功", 3000);
-                    } else {
-                        QMessageBox::warning(dialog, "连接失败", "无法连接到 TCP 主机");
-                    }
-                    disconnect(*conn);
-                    delete conn;
+                    dialog->setConnected(true);
+                    ui->statusbar->showMessage("TCP 连接成功", 3000);
+                    disconnect(*connOk);
+                    delete connOk;
+                });
+
+                auto *connFail = new QMetaObject::Connection;
+                *connFail = connect(m_worker, &CommWorker::tcpConnectFailed, this, [this, dialog, connFail](const QString &msg) {
+                    m_isConnecting = false;
+                    QMessageBox::warning(dialog, "连接失败", msg);
+                    disconnect(*connFail);
+                    delete connFail;
                 });
 
                 if (!m_workerThread->isRunning()) {
@@ -225,6 +229,9 @@ void MainWindow::initWorker()
     connect(ui->tabWidget, &QTabWidget::currentChanged, this, [this](int index) {
         if (index == 1) loadHistory();
     });
+
+    // 初始化时加载一次历史数据（显示表头）
+    loadHistory();
 }
 
 void MainWindow::initChart()

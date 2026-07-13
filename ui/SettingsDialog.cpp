@@ -33,6 +33,9 @@ void SettingsDialog::refreshPortList()
     for (const auto &port : ports) {
         ui->comboPort->addItem(port.portName());
     }
+    if (ports.isEmpty()) {
+        ui->comboPort->addItem("未检测到串口");
+    }
 }
 
 void SettingsDialog::on_btnRefresh_clicked()
@@ -43,6 +46,7 @@ void SettingsDialog::on_btnRefresh_clicked()
 void SettingsDialog::on_tabWidget_currentChanged(int index)
 {
     m_isTcpMode = (index == 1);
+    ui->btnRefresh->setEnabled(!m_isTcpMode);
     if (!m_connected) {
         ui->btnConnect->setText(m_isTcpMode ? "连接TCP" : "连接串口");
     } else {
