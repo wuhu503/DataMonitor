@@ -28,6 +28,10 @@ bool DatabaseManager::open(const QString &dbPath)
         return false;
     }
 
+    // 与 UI 历史查询共用同一 SQLite 文件，设置忙等待避免瞬时锁冲突
+    QSqlQuery pragma(m_db);
+    pragma.exec("PRAGMA busy_timeout=3000");
+
     QSqlQuery query(m_db);
     query.exec(
         "CREATE TABLE IF NOT EXISTS data_records ("
@@ -45,6 +49,8 @@ void DatabaseManager::close()
     if (m_db.isOpen()) {
         m_db.close();
     }
+    // 先释放 QSqlDatabase 对连接的引用，再移除连接，避免 removeDatabase 告警
+    m_db = QSqlDatabase();
     // 清理连接
     if (!m_connName.isEmpty()) {
         QSqlDatabase::removeDatabase(m_connName);

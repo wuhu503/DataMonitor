@@ -10,6 +10,7 @@
 #include <QSqlQuery>
 #include <QSqlError>
 #include <QTimer>
+#include <QCoreApplication>
 #include "ui/SettingsDialog.h"
 #include "core/FileLogger.h"
 
@@ -25,15 +26,21 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
-    delete ui;
     if (m_workerThread && m_workerThread->isRunning()) {
-        m_worker->stop();
+        // 在 worker 线程内执行 stop()，避免跨线程直接调用
+        QMetaObject::invokeMethod(m_worker, &CommWorker::stop,
+                                  Qt::BlockingQueuedConnection);
+    }
+    if (m_workerThread) {
+        m_workerThread->quit();   // 线程安全，直接请求事件循环退出
         m_workerThread->wait(3000);
     }
-    if (m_dbThread && m_dbThread->isRunning()) {
+    if (m_dbThread) {
         m_dbThread->quit();
         m_dbThread->wait(3000);
     }
+    delete m_logger;
+    delete ui;
 }
 
 void MainWindow::initMenuBar()
@@ -95,8 +102,10 @@ void MainWindow::initMenuBar()
                 m_worker->closePort();
             });
 
-            // 2. 设置新模式
-            m_worker->setMode(CommWorker::Tcp);
+            // 2. 设置新模式（queued 到 worker 线程，保证在 connectToHost 之前执行）
+            QMetaObject::invokeMethod(m_worker, [this]() {
+                m_worker->setMode(CommWorker::Tcp);
+            });
 
             // 3. 断开旧连接
             if (m_tcpConnOk) {
@@ -117,7 +126,9 @@ void MainWindow::initMenuBar()
 
             m_tcpConnFail = connect(m_worker, &CommWorker::tcpConnectFailed, this, [this, dialog](const QString &msg) {
                 m_isConnecting = false;
-                QMessageBox::warning(dialog, "连接失败", msg);
+                dialog->setConnected(false);
+                // 失败提示走状态栏，避免自动重试时 3 秒一次的弹窗风暴
+                ui->statusbar->showMessage("TCP 连接失败: " + msg, 5000);
             });
 
             // 4. 启动线程（如果未运行）并连接
@@ -150,9 +161,9 @@ void MainWindow::initMenuBar()
         }
 
         QTextStream out(&file);
-        out << "通道,序号,数值\n";
+        out << "地址,序号,数值\n";
         for (auto it2 = m_seriesMap.begin(); it2 != m_seriesMap.end(); ++it2) {
-            auto pts = it2.value()->pointsVector();
+            auto pts = it2.value()->points();
             for (int i = 0; i < pts.size(); ++i) {
                 out << "0x" << QString::number(it2.key(), 16) << ","
                     << i + 1 << "," << pts[i].y() << "\n";
@@ -179,6 +190,11 @@ void MainWindow::initWorker()
         }
         it.value()->append(++m_pointCount, frame.value);
 
+        // 裁剪窗口外旧点，避免长时间运行内存持续增长
+        if (it.value()->count() > kMaxSeriesPoints) {
+            it.value()->removePoints(0, it.value()->count() - kMaxSeriesPoints);
+        }
+
         ui->listWidget->insertItem(0,
             QStringLiteral("%1 | 0x%2 | %3 | %4")
                 .arg(m_pointCount)
@@ -190,21 +206,46 @@ void MainWindow::initWorker()
             delete ui->listWidget->takeItem(ui->listWidget->count() - 1);
         }
 
-        if (frame.value > m_alarmThreshold) {
+        if (frame.value > kAlarmThreshold) {
             ui->listWidget->item(0)->setForeground(Qt::red);
             ui->statusbar->showMessage(
                 QStringLiteral("警报: 通道 0x%1 数值 %2 超过阈值 %3")
                     .arg(frame.address, 2, 16, QChar('0'))
                     .arg(frame.value)
-                    .arg(m_alarmThreshold), 3000);
+                    .arg(kAlarmThreshold), 3000);
         }
 
-        // Auto-scale Y axis
+        // Y 轴即时上调
         auto yAxes = m_chart->axes(Qt::Vertical);
         if (!yAxes.isEmpty()) {
             auto *yAxis = qobject_cast<QValueAxis *>(yAxes.first());
             if (yAxis && frame.value > yAxis->max()) {
                 yAxis->setRange(0, frame.value * 1.2);
+            }
+        }
+
+        // 每 50 帧按可视窗口内最大值回落 Y 轴
+        if (m_pointCount % 50 == 0) {
+            if (!yAxes.isEmpty()) {
+                auto *yAxis = qobject_cast<QValueAxis *>(yAxes.first());
+                if (yAxis) {
+                    double windowStart = m_pointCount > kMaxSeriesPoints
+                                             ? m_pointCount - kMaxSeriesPoints
+                                             : 0;
+                    double visibleMax = 0.0;
+                    for (auto *s : m_seriesMap) {
+                        const auto pts = s->points();
+                        for (int i = 0; i < pts.size(); ++i) {
+                            if (pts[i].x() >= windowStart && pts[i].y() > visibleMax) {
+                                visibleMax = pts[i].y();
+                            }
+                        }
+                    }
+                    double newMax = qMax(visibleMax * 1.2, 10.0);
+                    if (newMax < yAxis->max()) {
+                        yAxis->setRange(0, newMax);
+                    }
+                }
             }
         }
 
@@ -223,21 +264,27 @@ void MainWindow::initWorker()
 
     connect(m_workerThread, &QThread::started, m_worker, &CommWorker::start);
     connect(m_worker, &CommWorker::finished, m_workerThread, &QThread::quit);
+    // 线程结束后在各自线程内销毁，QSqlDatabase 连接归属线程安全
+    connect(m_workerThread, &QThread::finished, m_worker, &QObject::deleteLater);
     m_workerThread->start();
 
     // 数据库线程
     m_dbThread = new QThread(this);
-    m_dbWriter = new DatabaseWriter("data.db");
+    m_dbWriter = new DatabaseWriter(QCoreApplication::applicationDirPath() + "/data.db");
     m_dbWriter->moveToThread(m_dbThread);
+
+    // 数据库在 moveToThread 之后于数据库线程内打开（QSqlDatabase 绑定创建它的线程）
+    connect(m_dbThread, &QThread::started, m_dbWriter, &DatabaseWriter::init);
 
     // 信号流向：CommWorker::frameReceived -> DatabaseWriter (数据库写入)
     connect(m_worker, &CommWorker::frameReceived, m_dbWriter, &DatabaseWriter::saveRecord);
     connect(m_dbWriter, &DatabaseWriter::errorOccurred, this, [this](const QString &msg) {
         ui->statusbar->showMessage(msg, 5000);
     });
+    connect(m_dbThread, &QThread::finished, m_dbWriter, &QObject::deleteLater);
     m_dbThread->start();
 
-    m_logger = new FileLogger("data_monitor.log");
+    m_logger = new FileLogger(QCoreApplication::applicationDirPath() + "/data_monitor.log");
     // 信号流向：CommWorker::frameReceived -> FileLogger (日志写入)
     connect(m_worker, &CommWorker::frameReceived, m_logger, &FileLogger::write);
 
@@ -291,7 +338,7 @@ void MainWindow::initChart()
 void MainWindow::loadHistory()
 {
     QSqlDatabase readDb = QSqlDatabase::addDatabase("QSQLITE", "read_connection");
-    readDb.setDatabaseName("data.db");
+    readDb.setDatabaseName(QCoreApplication::applicationDirPath() + "/data.db");
     if (!readDb.open()) return;
 
     QSqlQuery query(readDb);
@@ -310,11 +357,11 @@ void MainWindow::loadHistory()
     ui->historyTable->setModel(nullptr);
 
     auto *model = new QStandardItemModel(records.size(), 3, this);
-    model->setHorizontalHeaderLabels({"地址", "数值", "序号"});
+    model->setHorizontalHeaderLabels({"地址", "序号", "数值"});
     for (int i = 0; i < records.size(); ++i) {
         model->setItem(i, 0, new QStandardItem("0x" + QString::number(records[i].address, 16)));
-        model->setItem(i, 1, new QStandardItem(QString::number(records[i].value)));
-        model->setItem(i, 2, new QStandardItem(QString::number(i + 1)));
+        model->setItem(i, 1, new QStandardItem(QString::number(i + 1)));
+        model->setItem(i, 2, new QStandardItem(QString::number(records[i].value)));
     }
     ui->historyTable->setModel(model);
     ui->historyTable->horizontalHeader()->setStretchLastSection(true);

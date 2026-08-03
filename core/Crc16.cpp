@@ -25,6 +25,7 @@ bool verify(const QByteArray &data)
     if (data.size() < 2) return false;
     QByteArray payload = data.left(data.size() - 2);
     uint16_t expected = calculate(payload);
+    // 帧尾按 [CRC低字节][CRC高字节] 存放（与 ProtocolParser 的 kIndexCrcLow/kIndexCrcHigh 约定一致）
     uint16_t actual = (static_cast<uint8_t>(data[data.size() - 1]) << 8)
                       | static_cast<uint8_t>(data[data.size() - 2]);
     return expected == actual;

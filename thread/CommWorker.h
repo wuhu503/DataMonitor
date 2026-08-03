@@ -34,6 +34,8 @@ signals:
     void finished();
 
 private:
+    void ensureSerialComm();
+    void ensureTcpComm();
     void setupConnections(QObject *source);
 
     Mode m_mode = Serial;

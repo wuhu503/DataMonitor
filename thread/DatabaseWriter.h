@@ -15,6 +15,7 @@ public:
     ~DatabaseWriter() override;
 
 public slots:
+    void init();
     void saveRecord(const ParsedFrame &frame);
     void queryRecent(int limit);
 
@@ -24,6 +25,7 @@ signals:
 
 private:
     DatabaseManager m_db;
+    QString m_dbPath;
 };
 
 #endif // DATABASEWRITER_H

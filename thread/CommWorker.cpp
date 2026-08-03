@@ -4,6 +4,16 @@
 CommWorker::CommWorker(QObject *parent)
     : QObject(parent)
 {
+    // 定时器随对象一起 moveToThread，在 worker 线程内运行
+    m_reconnectTimer = new QTimer(this);
+    m_reconnectTimer->setInterval(3000);
+    connect(m_reconnectTimer, &QTimer::timeout, this, [this]() {
+        if (m_mode == Tcp && !m_lastHost.isEmpty()) {
+            connectToHost(m_lastHost, m_lastTcpPort);
+        } else if (!m_lastPort.isEmpty()) {
+            openPort(m_lastPort, m_lastBaud);
+        }
+    });
 }
 
 void CommWorker::setMode(Mode mode)
@@ -15,8 +25,9 @@ void CommWorker::start()
 {
     m_running = true;
     loadSettings();
+    m_reconnectTimer->stop();
 
-    // 清理旧的通信管理器
+    // 清理旧的通信管理器，确保按当前模式重建
     if (m_serialComm) {
         m_serialComm->deleteLater();
         m_serialComm = nullptr;
@@ -25,28 +36,28 @@ void CommWorker::start()
         m_tcpComm->deleteLater();
         m_tcpComm = nullptr;
     }
-    if (m_reconnectTimer) {
-        m_reconnectTimer->deleteLater();
-        m_reconnectTimer = nullptr;
-    }
 
     if (m_mode == Tcp) {
-        m_tcpComm = new TcpCommunicationManager(this);
-        setupConnections(m_tcpComm);
+        ensureTcpComm();
     } else {
+        ensureSerialComm();
+    }
+}
+
+void CommWorker::ensureSerialComm()
+{
+    if (!m_serialComm) {
         m_serialComm = new CommunicationManager(this);
         setupConnections(m_serialComm);
     }
+}
 
-    m_reconnectTimer = new QTimer(this);
-    m_reconnectTimer->setInterval(3000);
-    connect(m_reconnectTimer, &QTimer::timeout, this, [this]() {
-        if (m_mode == Tcp && !m_lastHost.isEmpty()) {
-            connectToHost(m_lastHost, m_lastTcpPort);
-        } else if (!m_lastPort.isEmpty()) {
-            openPort(m_lastPort, m_lastBaud);
-        }
-    });
+void CommWorker::ensureTcpComm()
+{
+    if (!m_tcpComm) {
+        m_tcpComm = new TcpCommunicationManager(this);
+        setupConnections(m_tcpComm);
+    }
 }
 
 void CommWorker::setupConnections(QObject *source)
@@ -69,6 +80,8 @@ void CommWorker::setupConnections(QObject *source)
         });
         connect(tcp, &TcpCommunicationManager::connectionFailed, this, [this](const QString &msg) {
             emit tcpConnectFailed(msg);
+            // 首次连接失败也进入自动重试，与断线重连行为一致
+            if (m_running) m_reconnectTimer->start();
         });
     }
 }
@@ -83,7 +96,7 @@ void CommWorker::stop()
 
 void CommWorker::openPort(const QString &portName, qint32 baudRate)
 {
-    if (!m_serialComm) return;
+    ensureSerialComm();
     m_lastPort = portName;
     m_lastBaud = baudRate;
     bool ok = m_serialComm->openSerialPort(portName, baudRate);
@@ -96,10 +109,7 @@ void CommWorker::openPort(const QString &portName, qint32 baudRate)
 
 void CommWorker::connectToHost(const QString &host, quint16 port)
 {
-    if (!m_tcpComm) {
-        emit tcpConnectFailed("TCP 通信管理器未初始化");
-        return;
-    }
+    ensureTcpComm();
     m_lastHost = host;
     m_lastTcpPort = port;
     m_tcpComm->connectToHost(host, port);
@@ -108,6 +118,8 @@ void CommWorker::connectToHost(const QString &host, quint16 port)
 
 void CommWorker::closePort()
 {
+    // 手动断开时停止自动重连；拔出设备触发的 disconnected 会另行启动定时器
+    m_reconnectTimer->stop();
     if (m_serialComm) m_serialComm->closeSerialPort();
     if (m_tcpComm)  m_tcpComm->disconnectFromHost();
 }

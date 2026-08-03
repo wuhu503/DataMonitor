@@ -35,8 +35,6 @@
 
 ### 📋 规划中
 
-- **TCP/IP 通信** — 计划通过 QTcpSocket 实现 Modbus TCP 协议支持，与现有串口通信共用 ProtocolParser
-
 - **国际化** — 英文界面支持
 
 ## 项目结构
@@ -45,12 +43,11 @@
 DataMonitor/
 ├── CMakeLists.txt
 ├── app/main.cpp
-├── core/          # 核心逻辑：Crc16, ProtocolParser, CommunicationManager, TcpCommunicationManager
-├── model/        # 数据模型：ChannelConfig, CommunicationManager, FileLogger
+├── core/          # 核心逻辑：Crc16, ProtocolParser, CommunicationManager, TcpCommunicationManager, FileLogger
 ├── thread/        # 工作线程：CommWorker, DatabaseWriter
 ├── db/            # 数据库：DatabaseManager
 ├── ui/            # 界面：MainWindow, SettingsDialog
-└── resources/     # 资源：QSS 样式
+└── resources/     # 资源：QSS 样式（.qrc 内嵌）
 ```
 
 ## 构建
@@ -63,9 +60,12 @@ cmake --build .
 
 ## 协议说明
 
-当前仅实现 **Modbus RTU**（串口），协议层设计预留了扩展点：
+串口（Modbus RTU）与 TCP 共用同一套解析层，帧为固定 6 字节：
 
-- `ProtocolParser` 构造参数可指定设备地址和功能码
-- `CommunicationManager` 可在后期对称支持 `QTcpSocket`
+```
+[地址][功能码][数值低字节][数值高字节][CRC低字节][CRC高字节]
+```
 
-若要增加 TCP 通信，只需添加一个 `TcpCommunicationManager` 类，复用现有 `ProtocolParser` 和 `Crc16` 即可。
+- 数值按小端解析；CRC-16/Modbus 按低字节在前存放
+- `ProtocolParser` 构造参数可指定设备地址列表（默认 0x01–0x04）和功能码
+- `CommunicationManager`（串口）与 `TcpCommunicationManager`（TCP）均复用 `ProtocolParser` 和 `Crc16`

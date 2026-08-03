@@ -19,7 +19,7 @@ qt_add_executable(DataMonitor
     core/CommunicationManager.h core/CommunicationManager.cpp
     core/TcpCommunicationManager.h core/TcpCommunicationManager.cpp
     thread/CommWorker.h thread/CommWorker.cpp
-    resources/styles/style.qss
+    resources/resources.qrc
     ui/SettingsDialog.ui
     ui/SettingsDialog.h ui/SettingsDialog.cpp
     db/DatabaseManager.h db/DatabaseManager.cpp

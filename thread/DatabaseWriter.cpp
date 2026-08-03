@@ -1,20 +1,23 @@
 #include "DatabaseWriter.h"
 #include "core/ParsedFrame.h"
-#include <QTimer>
 
 DatabaseWriter::DatabaseWriter(const QString &dbPath, QObject *parent)
     : QObject(parent)
+    , m_dbPath(dbPath)
 {
-    if (!m_db.open(dbPath)) {
-        QTimer::singleShot(0, this, [this]() {
-            emit errorOccurred("打开数据库失败");
-        });
-    }
 }
 
 DatabaseWriter::~DatabaseWriter()
 {
     m_db.close();
+}
+
+void DatabaseWriter::init()
+{
+    // 在 moveToThread 之后调用，确保 QSqlDatabase 连接归属于数据库线程
+    if (!m_db.open(m_dbPath)) {
+        emit errorOccurred("打开数据库失败: " + m_dbPath);
+    }
 }
 
 void DatabaseWriter::saveRecord(const ParsedFrame &frame)
