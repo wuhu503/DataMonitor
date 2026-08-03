@@ -354,8 +354,6 @@ void MainWindow::loadHistory()
     readDb.close();
     QSqlDatabase::removeDatabase("read_connection");
 
-    ui->historyTable->setModel(nullptr);
-
     auto *model = new QStandardItemModel(records.size(), 3, this);
     model->setHorizontalHeaderLabels({"地址", "序号", "数值"});
     for (int i = 0; i < records.size(); ++i) {
