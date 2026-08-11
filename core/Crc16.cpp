@@ -2,7 +2,8 @@
 
 namespace Crc16 {
 
-static constexpr uint16_t kPoly = 0x8005;
+// Modbus CRC-16 使用右移算法，多项式需用 0x8005 的位反转值 0xA001
+static constexpr uint16_t kPoly = 0xA001;
 
 uint16_t calculate(const QByteArray &data)
 {

@@ -39,8 +39,8 @@ private:
     QMap<uint8_t, QLineSeries *> m_seriesMap;
     QChart *m_chart = nullptr;
     int m_pointCount = 0;
-    static constexpr int kAlarmThreshold = 800;
     static constexpr int kMaxSeriesPoints = 200;
+    int m_alarmThreshold = 800;
 
     QThread *m_workerThread = nullptr;
     CommWorker *m_worker = nullptr;

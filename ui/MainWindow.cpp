@@ -11,6 +11,7 @@
 #include <QSqlError>
 #include <QTimer>
 #include <QCoreApplication>
+#include <QSettings>
 #include "ui/SettingsDialog.h"
 #include "core/FileLogger.h"
 
@@ -19,6 +20,8 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    QSettings settings("DataMonitor", "DataMonitor");
+    m_alarmThreshold = settings.value("alarm/threshold", 800).toInt();
     initMenuBar();
     initWorker();
     initChart();
@@ -206,13 +209,13 @@ void MainWindow::initWorker()
             delete ui->listWidget->takeItem(ui->listWidget->count() - 1);
         }
 
-        if (frame.value > kAlarmThreshold) {
+        if (frame.value > m_alarmThreshold) {
             ui->listWidget->item(0)->setForeground(Qt::red);
             ui->statusbar->showMessage(
                 QStringLiteral("警报: 通道 0x%1 数值 %2 超过阈值 %3")
                     .arg(frame.address, 2, 16, QChar('0'))
                     .arg(frame.value)
-                    .arg(kAlarmThreshold), 3000);
+                    .arg(m_alarmThreshold), 3000);
         }
 
         // Y 轴即时上调

@@ -46,6 +46,7 @@ DataMonitor/
 ├── core/          # 核心逻辑：Crc16, ProtocolParser, CommunicationManager, TcpCommunicationManager, FileLogger
 ├── thread/        # 工作线程：CommWorker, DatabaseWriter
 ├── db/            # 数据库：DatabaseManager
+├── model/         # 数据模型：ChannelConfig
 ├── ui/            # 界面：MainWindow, SettingsDialog
 └── resources/     # 资源：QSS 样式（.qrc 内嵌）
 ```
@@ -57,6 +58,14 @@ mkdir build && cd build
 cmake .. -DCMAKE_PREFIX_PATH=D:/Qt/6.11.0/mingw_64
 cmake --build .
 ```
+
+## 配置
+
+程序使用 `QSettings` 持久化运行参数：
+
+- 串口：`port/name`、`port/baud`
+- TCP：`tcp/host`、`tcp/port`
+- 报警：`alarm/threshold`（默认 800，可在 `MainWindow` 构造前通过注册表/配置文件覆盖）
 
 ## 协议说明
 

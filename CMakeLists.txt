@@ -1,9 +1,12 @@
 ﻿cmake_minimum_required(VERSION 3.19)
 project(DataMonitor LANGUAGES CXX)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets SerialPort Charts Sql Network)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets SerialPort Charts Sql Network Test)
 
 qt_standard_project_setup()
+
+enable_testing()
+add_subdirectory(tests)
 
 qt_add_executable(DataMonitor
     WIN32 MACOSX_BUNDLE
@@ -18,6 +21,7 @@ qt_add_executable(DataMonitor
     core/ParsedFrame.h
     core/CommunicationManager.h core/CommunicationManager.cpp
     core/TcpCommunicationManager.h core/TcpCommunicationManager.cpp
+    model/ChannelConfig.h
     thread/CommWorker.h thread/CommWorker.cpp
     resources/resources.qrc
     ui/SettingsDialog.ui
